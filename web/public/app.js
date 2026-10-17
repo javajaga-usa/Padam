@@ -257,6 +257,7 @@
         (m.videos.length ? '<div class="btn primary focusable" data-key="play" data-play="' + esc(m.videos[0].key) + '"><span class="icon">▶</span>Play trailer</div>' : '') +
         (m.free ? '<div class="btn primary focusable" data-key="free" data-play="' + esc(m.free.key) + '"><span class="icon">\u25B6</span>Free on YouTube</div>' : '') +
         '<div class="btn focusable" id="list-btn" data-key="mylist" data-action="mylist">' + listLabel(false) + '</div>' +
+        '<div class="btn focusable" data-key="einthusan" data-href="' + esc(einthusanUrl(m.title)) + '">Open on Einthusan</div>' +
         '</div>' + (m.free ? '<div class="where"><span class="hint">Full film, uploaded by ' + esc(m.free.channel) + '</span></div>' : '') + whereToWatch(m) + '</div></div>';
 
       if (m.videos.length > 1) {
@@ -281,6 +282,11 @@
         setListButton(lib.list.some(function (x) { return x.id === m.id; }));
       }, true);
     });
+  }
+
+  // Einthusan's own search page for the film; it plays there with the viewer's own account.
+  function einthusanUrl(title) {
+    return 'https://einthusan.tv/movie/results/?lang=tamil&query=' + encodeURIComponent(title);
   }
 
   var openMovie = null;
@@ -432,6 +438,7 @@
   function activate(el) {
     if (!el) return;
     if (el.getAttribute('data-play')) return play(el.getAttribute('data-play'));
+    if (el.getAttribute('data-href')) { location.href = el.getAttribute('data-href'); return; }
     if (el.getAttribute('data-go')) {
       if (location.hash === el.getAttribute('data-go') || (!location.hash && el.getAttribute('data-go') === '#/')) return;
       location.hash = el.getAttribute('data-go');

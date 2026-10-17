@@ -55,6 +55,14 @@ object Launchers {
         context.toast("$providerName isn't available on this device")
     }
 
+    /** Opens Einthusan's search for the film, where it plays with the viewer's own account. */
+    fun openEinthusan(context: Context, title: String) {
+        val url = "https://einthusan.tv/movie/results/?lang=tamil&query=" + Uri.encode(title)
+        if (!context.tryStart(Intent(Intent.ACTION_VIEW, Uri.parse(url)))) {
+            context.toast("Install a web browser to open Einthusan")
+        }
+    }
+
     private fun Context.tryStart(intent: Intent): Boolean = try {
         startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true

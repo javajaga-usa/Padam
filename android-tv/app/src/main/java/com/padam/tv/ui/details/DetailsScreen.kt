@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -93,6 +95,7 @@ fun DetailsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DetailsContent(
     state: DetailsState.Ready,
@@ -161,9 +164,9 @@ private fun DetailsContent(
                             movie.director?.let { Credit("Director", it) }
                             movie.music?.let { Credit("Music", it) }
                         }
-                        Row(
+                        FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.padding(top = 22.dp),
                         ) {
                             // The first button gets focus when the page opens.
@@ -185,6 +188,7 @@ private fun DetailsContent(
                                     modifier = Modifier.firstFocus(),
                                 )
                             }
+                            SecondaryButton("Einthusan", { Launchers.openEinthusan(context, movie.title) })
                             SecondaryButton(
                                 if (state.inList) "✓  In My List" else "+  My List",
                                 onToggleList,
