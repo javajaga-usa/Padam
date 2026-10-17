@@ -1,0 +1,12 @@
+{
+  "name": "padam-web",
+  "version": "0.1.0",
+  "description": "Padam for any TV browser: Tamil movie lists served from a computer on your home network",
+  "private": true,
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "mock": "PADAM_MOCK=1 node server.js"
+  }
+}

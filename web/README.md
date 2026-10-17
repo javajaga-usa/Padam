@@ -1,0 +1,88 @@
+# Padam for any TV browser
+
+Run Padam on a computer at home, then open it in the web browser of any smart TV on the same Wi-Fi
+(Samsung, LG, Sony, Fire TV, or anything with a browser). You browse with the remote's arrow keys,
+OK and Back. No ads, no tracking, no accounts.
+
+It shows the same lists as the Android TV app (In theatres, Streaming on your apps, Popular, Top rated,
+Coming soon, genres, Classics). It also has Tamil-only search and a details page with cast, crew,
+where the film is streaming, and official trailers and songs that play full screen.
+
+## Run it
+
+Needs Node.js 18 or newer on the computer (https://nodejs.org). No other installs.
+
+1. Get a free TMDB key at https://www.themoviedb.org/settings/api.
+2. Copy `.env.example` to `.env` and put the key after `TMDB_API_KEY=`.
+3. Start it:
+
+   ```
+   node server.js
+   ```
+
+4. On the TV's browser, type **`padam.local`** in the address bar and bookmark it.
+   If the browser runs a web search instead of opening the page, type it as `http://padam.local`.
+
+The key stays on your computer. The TV only talks to your computer, to TMDB for poster images,
+and to YouTube for trailers.
+
+To try the screens without a key, run `PADAM_MOCK=1 node server.js` (sample titles, no posters).
+
+If the TV can't open it, allow Node.js through the computer's firewall on private networks
+(the first run on Windows and macOS asks), and keep the computer awake while you watch.
+
+### No port number
+
+Padam uses port 80, the browser's default, so the address has no `:8080` on the end.
+
+- **Windows and macOS:** works as is.
+- **Linux:** allow Node to use port 80 once with
+  `sudo setcap 'cap_net_bind_service=+ep' "$(command -v node)"`.
+
+If port 80 is unavailable (another program uses it, or Linux without the step above), Padam falls back
+to 8080 and says so when it starts.
+
+### If `padam.local` doesn't open
+
+The server announces the name `padam.local` on your home network (mDNS, the same way printers and
+Apple devices find each other). Android TV and Google TV generally understand it; support in Samsung,
+LG and other TV browsers varies by model. If yours doesn't:
+
+1. Use the IP address the server prints when it starts (for example `http://192.168.1.20`).
+2. To stop that address changing, reserve it for the computer in your Wi-Fi router's settings
+   (usually called "DHCP reservation" or "static lease"). Many routers also let you give it a
+   name there, such as `padam`, which then works on every TV.
+
+To use a different name, set `PADAM_NAME=movies` in `.env` and open `movies.local`.
+
+## Remote keys
+
+| Key | Does |
+| --- | --- |
+| Arrows | Move between films and buttons |
+| OK / Enter | Open a film, play a trailer |
+| Back | Close the player or go back a screen |
+
+A pointer remote (LG Magic Remote) or a mouse also works.
+
+## Settings (`.env`)
+
+| Name | Default | Meaning |
+| --- | --- | --- |
+| `TMDB_API_KEY` | (required) | TMDB v3 key or v4 read token |
+| `TMDB_REGION` | `IN` | Country used for "streaming on" |
+| `TMDB_LANGUAGE` | `en-IN` | Language for titles and synopses |
+| `PORT` | `80` | Port the TV connects to |
+| `PADAM_NAME` | `padam` | Name to type on the TV, without `.local` |
+
+## Files
+
+```
+server.js          serves the app and proxies TMDB, with a 6-hour in-memory cache
+mdns.js            announces padam.local on the home network
+public/index.html  page shell and the trailer player
+public/app.js      screens and remote-control navigation (plain ES5 for older TV browsers)
+public/style.css   10-foot layout that scales with the TV's screen size
+```
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.

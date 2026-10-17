@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Padam" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+    <color name="background">#0E0E12</color>
+    <color name="accent">#E8A33D</color>
+</resources>

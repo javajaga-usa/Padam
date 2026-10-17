@@ -1,0 +1,55 @@
+# Padam — Tamil movies for Android TV
+
+A clean, ad-free Android TV app for browsing Tamil films. Built with Kotlin and Jetpack Compose for TV.
+
+## What it does
+
+- **Home**: a full-screen backdrop that follows the focused film, with rows for In theatres, Streaming on your apps, Popular, Top rated, Coming soon, genres and Classics.
+- **Search**: Tamil-only results as you type.
+- **Details**: synopsis, director, music director, cast, rating, runtime, plus:
+  - **Play trailer** and every official trailer, song and clip, opened in the YouTube app.
+  - **Watch on ...** buttons for the OTT apps that hold the film in your region (from TMDB / JustWatch data). Pressing one opens that app, or its Play Store page if it isn't installed.
+  - More like this.
+- No ads, no tracking, no analytics, no accounts.
+
+Padam never streams video itself. Playback goes to apps that hold the rights, so nothing breaks when a pirate site goes down and nothing exposes you to their pop-ups or malware.
+
+## Setup
+
+1. Get a free TMDB key at https://www.themoviedb.org/settings/api (the v3 API key or the v4 read access token both work).
+2. Put it in `local.properties` at the project root (this file is git-ignored):
+
+   ```
+   sdk.dir=/path/to/Android/sdk
+   TMDB_API_KEY=your_key_here
+   # optional
+   TMDB_REGION=IN
+   TMDB_LANGUAGE=en-IN
+   ```
+
+   Environment variables with the same names also work, which is how CI passes the key.
+3. Build and install:
+
+   ```
+   ./gradlew assembleDebug
+   adb install app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+Requires JDK 17+, Android SDK 35. Runs on Android TV 8.0 (API 26) and later.
+
+## CI
+
+`.github/workflows/android-tv.yml` (at the repo root) builds the debug APK on every push. Add `TMDB_API_KEY` as a repository secret and download the APK from the workflow run's artifacts.
+
+## Layout
+
+```
+app/src/main/java/com/padam/tv/
+  MainActivity.kt        navigation (home, search, movie/{id})
+  PadamApp.kt            service locator
+  data/                  TMDB API, models, repository with in-memory cache
+  ui/home, ui/search, ui/details, ui/components, ui/theme
+  util/Launchers.kt      YouTube and OTT app hand-off
+```
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.

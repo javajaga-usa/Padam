@@ -1,0 +1,48 @@
+package com.padam.tv.ui.search
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.padam.tv.data.Movie
+import com.padam.tv.data.MovieRepository
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+
+data class SearchState(
+    val query: String = "",
+    val results: List<Movie> = emptyList(),
+    val searching: Boolean = false,
+    val error: Boolean = false,
+)
+
+@OptIn(FlowPreview::class)
+class SearchViewModel(private val repository: MovieRepository) : ViewModel() {
+    private val _state = MutableStateFlow(SearchState())
+    val state: StateFlow<SearchState> = _state
+    private val query = MutableStateFlow("")
+
+    init {
+        query.debounce(350).distinctUntilChanged().onEach { q ->
+            if (q.isBlank()) {
+                _state.value = _state.value.copy(results = emptyList(), searching = false, error = false)
+                return@onEach
+            }
+            _state.value = _state.value.copy(searching = true, error = false)
+            val result = runCatching { repository.search(q.trim()) }
+            _state.value = _state.value.copy(
+                results = result.getOrDefault(emptyList()),
+                searching = false,
+                error = result.isFailure,
+            )
+        }.launchIn(viewModelScope)
+    }
+
+    fun onQueryChange(value: String) {
+        _state.value = _state.value.copy(query = value)
+        query.value = value
+    }
+}
