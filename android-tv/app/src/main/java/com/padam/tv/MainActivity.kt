@@ -21,7 +21,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.padam.tv.ui.details.DetailsScreen
 import com.padam.tv.ui.home.HomeScreen
+import com.padam.tv.ui.components.LocalOpenSettings
 import com.padam.tv.ui.person.PersonScreen
+import com.padam.tv.ui.player.PlayerScreen
+import com.padam.tv.ui.settings.SettingsScreen
+import com.padam.tv.util.Launchers
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import com.padam.tv.ui.search.SearchScreen
 import com.padam.tv.ui.setup.KeySetupScreen
 import com.padam.tv.ui.theme.Background
@@ -58,6 +64,12 @@ private fun PadamNavHost(onChangeKey: () -> Unit) {
     val openPerson: (Int) -> Unit = { id -> nav.navigate("person/$id") }
     val goHome: () -> Unit = { nav.popBackStack("home", inclusive = false) }
     val goSearch: () -> Unit = { nav.navigate("search") { launchSingleTop = true } }
+    val goSettings: () -> Unit = { nav.navigate("settings") { launchSingleTop = true } }
+    val context = LocalContext.current
+    val play: (String) -> Unit = { key ->
+        if (Graph.youTubeInApp.value) nav.navigate("play/$key") else Launchers.playYouTube(context, key)
+    }
+    CompositionLocalProvider(LocalOpenSettings provides goSettings) {
     NavHost(navController = nav, startDestination = "home") {
         composable("home") {
             HomeScreen(onMovieClick = openMovie, onSearchClick = goSearch, onChangeKey = onChangeKey)
@@ -75,6 +87,7 @@ private fun PadamNavHost(onChangeKey: () -> Unit) {
                 onHome = goHome,
                 onSearch = goSearch,
                 onPersonClick = openPerson,
+                onPlay = play,
             )
         }
         composable(
@@ -88,5 +101,12 @@ private fun PadamNavHost(onChangeKey: () -> Unit) {
                 onSearch = goSearch,
             )
         }
+        composable("settings") {
+            SettingsScreen(onHome = goHome, onSearch = goSearch, onChangeKey = onChangeKey)
+        }
+        composable("play/{key}") { entry ->
+            PlayerScreen(videoKey = entry.arguments?.getString("key").orEmpty(), onExit = { nav.popBackStack() })
+        }
+    }
     }
 }

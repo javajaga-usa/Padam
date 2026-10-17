@@ -27,7 +27,17 @@ object Graph {
         if (::appContext.isInitialized) return
         appContext = context.applicationContext
         library = Library(appContext)
+        _youTubeInApp.value = prefs.getBoolean("youtube_in_app", true)
         _apiKey.value = prefs.getString("tmdb_key", null)?.takeIf { it.isNotBlank() } ?: BuildConfig.TMDB_API_KEY
+    }
+
+    /** Whether YouTube videos play inside Padam (true) or in the YouTube app, where YouTube Premium removes ads. */
+    private val _youTubeInApp = MutableStateFlow(true)
+    val youTubeInApp: StateFlow<Boolean> = _youTubeInApp
+
+    fun setYouTubeInApp(inApp: Boolean) {
+        prefs.edit().putBoolean("youtube_in_app", inApp).apply()
+        _youTubeInApp.value = inApp
     }
 
     fun setApiKey(key: String) {

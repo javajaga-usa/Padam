@@ -83,6 +83,7 @@ fun DetailsScreen(
     onHome: () -> Unit,
     onSearch: () -> Unit,
     onPersonClick: (Int) -> Unit,
+    onPlay: (String) -> Unit,
     viewModel: DetailsViewModel = viewModel(key = "details-$movieId") {
         DetailsViewModel(Graph.repository, Graph.library, Graph.youTube, movieId)
     },
@@ -91,7 +92,7 @@ fun DetailsScreen(
     when (val s = state) {
         DetailsState.Loading -> DetailsSkeleton(onHome, onSearch)
         is DetailsState.Error -> CenteredMessage("Couldn't load this film", s.message, actionLabel = "Try again", onAction = viewModel::load)
-        is DetailsState.Ready -> DetailsContent(s, onMovieClick, onHome, onSearch, onPersonClick, viewModel::toggleMyList)
+        is DetailsState.Ready -> DetailsContent(s, onMovieClick, onHome, onSearch, onPersonClick, onPlay, viewModel::toggleMyList)
     }
 }
 
@@ -103,6 +104,7 @@ private fun DetailsContent(
     onHome: () -> Unit,
     onSearch: () -> Unit,
     onPersonClick: (Int) -> Unit,
+    onPlay: (String) -> Unit,
     onToggleList: () -> Unit,
 ) {
     val movie = state.movie
@@ -175,10 +177,10 @@ private fun DetailsContent(
                                 if (focusTaken) this else { focusTaken = true; focusRequester(primaryAction) }
 
                             videos.firstOrNull()?.let { trailer ->
-                                PrimaryButton("▶  Play trailer", { Launchers.playYouTube(context, trailer.key) }, Modifier.firstFocus())
+                                PrimaryButton("▶  Play trailer", { onPlay(trailer.key) }, Modifier.firstFocus())
                             }
                             state.freeVideo?.let { free ->
-                                SecondaryButton("▶  Free on YouTube", { Launchers.playYouTube(context, free.key) }, Modifier.firstFocus())
+                                SecondaryButton("▶  Free on YouTube", { onPlay(free.key) }, Modifier.firstFocus())
                             }
                             streaming.take(3).forEach { p ->
                                 ProviderButton(
@@ -225,7 +227,7 @@ private fun DetailsContent(
             if (videos.size > 1) {
                 section("Trailers, songs and clips") {
                     itemsIndexed(videos.drop(1), key = { i, v -> "$i-${v.key}" }) { _, v ->
-                        VideoCard(v, onClick = { Launchers.playYouTube(context, v.key) })
+                        VideoCard(v, onClick = { onPlay(v.key) })
                     }
                 }
             }

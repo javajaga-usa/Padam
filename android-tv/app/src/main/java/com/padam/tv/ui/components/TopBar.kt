@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -24,10 +25,19 @@ import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-enum class Tab { Home, Search, None }
+/** How any screen's top bar reaches Settings, provided once by the navigation host. */
+val LocalOpenSettings = staticCompositionLocalOf<() -> Unit> { {} }
+
+enum class Tab { Home, Search, Settings, None }
 
 @Composable
-fun TopBar(selected: Tab, onHome: () -> Unit, onSearch: () -> Unit, modifier: Modifier = Modifier) {
+fun TopBar(
+    selected: Tab,
+    onHome: () -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+    onSettings: () -> Unit = LocalOpenSettings.current,
+) {
     Row(
         modifier.fillMaxWidth().height(56.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -38,6 +48,7 @@ fun TopBar(selected: Tab, onHome: () -> Unit, onSearch: () -> Unit, modifier: Mo
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NavPill("Home", selected == Tab.Home, onHome)
             NavPill("Search", selected == Tab.Search, onSearch)
+            NavPill("Settings", selected == Tab.Settings, onSettings)
         }
         Spacer(Modifier.weight(1f))
         Clock()
