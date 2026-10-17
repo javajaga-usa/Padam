@@ -40,14 +40,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.BorderStroke
+import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Surface
 import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.OutlinedButtonDefaults
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.padam.tv.Graph
-import com.padam.tv.data.CountryProviders
-import com.padam.tv.data.MovieDetails
 import com.padam.tv.data.Provider
 import com.padam.tv.data.TmdbImages
 import com.padam.tv.ui.components.Backdrop
@@ -58,6 +60,7 @@ import com.padam.tv.ui.components.MetaRow
 import com.padam.tv.ui.components.MovieCard
 import com.padam.tv.ui.components.PosterFallback
 import com.padam.tv.ui.components.PrimaryButton
+import com.padam.tv.ui.components.SecondaryButton
 import com.padam.tv.ui.components.SectionTitle
 import com.padam.tv.ui.components.Skeleton
 import com.padam.tv.ui.components.Tab
@@ -77,24 +80,30 @@ fun DetailsScreen(
     onMovieClick: (Int) -> Unit,
     onHome: () -> Unit,
     onSearch: () -> Unit,
-    viewModel: DetailsViewModel = viewModel(key = "details-$movieId") { DetailsViewModel(Graph.repository, movieId) },
+    onPersonClick: (Int) -> Unit,
+    viewModel: DetailsViewModel = viewModel(key = "details-$movieId") {
+        DetailsViewModel(Graph.repository, Graph.library, Graph.youTube, movieId)
+    },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         DetailsState.Loading -> DetailsSkeleton(onHome, onSearch)
         is DetailsState.Error -> CenteredMessage("Couldn't load this film", s.message, actionLabel = "Try again", onAction = viewModel::load)
-        is DetailsState.Ready -> DetailsContent(s.movie, s.providers, onMovieClick, onHome, onSearch)
+        is DetailsState.Ready -> DetailsContent(s, onMovieClick, onHome, onSearch, onPersonClick, viewModel::toggleMyList)
     }
 }
 
 @Composable
 private fun DetailsContent(
-    movie: MovieDetails,
-    providers: CountryProviders?,
+    state: DetailsState.Ready,
     onMovieClick: (Int) -> Unit,
     onHome: () -> Unit,
     onSearch: () -> Unit,
+    onPersonClick: (Int) -> Unit,
+    onToggleList: () -> Unit,
 ) {
+    val movie = state.movie
+    val providers = state.providers
     val context = LocalContext.current
     val primaryAction = remember { FocusRequester() }
     val streaming = providers?.let { (it.flatrate + it.free + it.ads).distinctBy { p -> p.id } }.orEmpty()
@@ -157,17 +166,39 @@ private fun DetailsContent(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(top = 22.dp),
                         ) {
+                            // The first button gets focus when the page opens.
+                            var focusTaken = false
+                            fun Modifier.firstFocus(): Modifier =
+                                if (focusTaken) this else { focusTaken = true; focusRequester(primaryAction) }
+
                             videos.firstOrNull()?.let { trailer ->
-                                PrimaryButton("▶  Play trailer", { Launchers.playYouTube(context, trailer.key) }, Modifier.focusRequester(primaryAction))
+                                PrimaryButton("▶  Play trailer", { Launchers.playYouTube(context, trailer.key) }, Modifier.firstFocus())
                             }
-                            streaming.take(3).forEachIndexed { i, p ->
+                            state.freeVideo?.let { free ->
+                                SecondaryButton("▶  Free on YouTube", { Launchers.playYouTube(context, free.key) }, Modifier.firstFocus())
+                            }
+                            streaming.take(3).forEach { p ->
                                 ProviderButton(
                                     provider = p,
                                     label = "Watch on ${p.name}",
                                     onClick = { Launchers.openProvider(context, p.name, providers?.link) },
-                                    modifier = if (videos.isEmpty() && i == 0) Modifier.focusRequester(primaryAction) else Modifier,
+                                    modifier = Modifier.firstFocus(),
                                 )
                             }
+                            SecondaryButton(
+                                if (state.inList) "✓  In My List" else "+  My List",
+                                onToggleList,
+                                Modifier.firstFocus(),
+                                highlighted = state.inList,
+                            )
+                        }
+                        state.freeVideo?.let {
+                            Text(
+                                "Full film, uploaded by ${it.channel}",
+                                color = TextFaint,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
                         }
                         if (streaming.isEmpty()) {
                             Text(
@@ -199,7 +230,9 @@ private fun DetailsContent(
                     Column {
                         SectionTitle("Cast", modifier = Modifier.padding(bottom = 14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            cast.take(9).forEach { c -> Person(c.name, c.character.orEmpty(), c.profilePath) }
+                            cast.take(9).forEach { c ->
+                                Person(c.name, c.character.orEmpty(), c.profilePath, onClick = { onPersonClick(c.id) })
+                            }
                         }
                     }
                 }
@@ -236,14 +269,20 @@ private fun Credit(label: String, name: String) {
 }
 
 @Composable
-private fun Person(name: String, character: String, photo: String?) {
+private fun Person(name: String, character: String, photo: String?, onClick: () -> Unit) {
     Column(Modifier.width(100.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(76.dp).clip(CircleShape)) {
+        Surface(
+            onClick = onClick,
+            shape = ClickableSurfaceDefaults.shape(CircleShape),
+            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Accent), shape = CircleShape)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+            modifier = Modifier.size(76.dp),
+        ) {
             Initials(name, 76.dp)
             if (photo != null) {
                 AsyncImage(
                     model = TmdbImages.profile(photo),
-                    contentDescription = null,
+                    contentDescription = name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )

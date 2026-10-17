@@ -10,6 +10,10 @@ A clean, ad-free Android TV app for browsing Tamil films. Built with Kotlin and 
   - **Play trailer** and every official trailer, song and clip, opened in the YouTube app.
   - **Watch on ...** buttons for the OTT apps that hold the film in your region (from TMDB / JustWatch data). Pressing one opens that app, or its Play Store page if it isn't installed.
   - More like this.
+- **My List** and **Recently viewed** rows, saved on the TV.
+- **Actor pages**: select anyone in the cast to see their biography and Tamil films.
+- **Free on YouTube** (optional): when a rights holder has put the full film on YouTube, a button plays it.
+  Only videos YouTube marks as licensed content, over an hour long, whose title names the film are shown.
 - No ads, no tracking, no analytics, no accounts.
 
 Padam never streams video itself. Playback goes to apps that hold the rights, so nothing breaks when a pirate site goes down and nothing exposes you to their pop-ups or malware.
@@ -22,12 +26,15 @@ Padam never streams video itself. Playback goes to apps that hold the rights, so
    ```
    sdk.dir=/path/to/Android/sdk
    TMDB_API_KEY=your_key_here
+   # optional, enables "Free on YouTube" (YouTube Data API v3 key from console.cloud.google.com)
+   YOUTUBE_API_KEY=your_youtube_key
    # optional
    TMDB_REGION=IN
    TMDB_LANGUAGE=en-IN
    ```
 
    Environment variables with the same names also work, which is how CI passes the key.
+   If the APK was built without a key, the app asks for one on first launch and keeps it on the TV.
 3. Build and install:
 
    ```

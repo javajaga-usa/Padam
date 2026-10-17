@@ -22,19 +22,34 @@
     });
   }
 
-  function get(url, cb) {
-    if (cache[url]) return cb(null, cache[url]);
+  function get(url, cb, fresh) {
+    request('GET', url, null, cb, fresh);
+  }
+
+  function post(url, body, cb) {
+    request('POST', url, body, cb || function () {}, true);
+  }
+
+  function request(method, url, body, cb, fresh) {
+    if (!fresh && cache[url]) return cb(null, cache[url]);
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', url);
+    xhr.open(method, url);
+    if (body) xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.onload = function () {
       var data = null;
       try { data = JSON.parse(xhr.responseText); } catch (e) { /* handled below */ }
       if (xhr.status !== 200 || !data) return cb(new Error((data && data.error) || 'The server answered with an error (' + xhr.status + ').'));
-      cache[url] = data;
+      if (!fresh) cache[url] = data;
       cb(null, data);
     };
     xhr.onerror = function () { cb(new Error('Padam can\'t reach the computer it runs on. Check that it is still switched on.')); };
-    xhr.send();
+    xhr.send(body ? JSON.stringify(body) : null);
+  }
+
+  // The fields My List and Recently viewed keep for a film.
+  function brief(m) {
+    return { id: m.id, title: m.title, year: m.year, rating: m.rating, overview: m.overview,
+      poster: m.poster, backdrop: m.backdrop, genres: m.genres };
   }
 
   function initials(name) {
@@ -137,17 +152,25 @@
       '<div class="hero"><div class="skel skel-line" style="width:8vw"></div><div class="skel" style="width:30vw;height:3.4vw;margin-bottom:1vw"></div>' +
       '<div class="skel skel-line" style="width:20vw"></div><div class="skel skel-line" style="width:40vw"></div></div>' +
       '<div class="rows">' + skeletonRows() + '</div></div>');
-    get('/api/home', function (err, data) {
-      if (err) return message('Couldn\'t load films', err.message, true);
+    var pending = 2, data = null, lib = { list: [], recent: [] }, failure = null;
+    function done() {
+      if (--pending) return;
+      if (failure) return message('Couldn\'t load films', failure.message, true);
       homeRows = data.rows;
+      var rows = [];
+      if (lib.recent.length) rows.push({ title: 'Recently viewed', movies: lib.recent });
+      if (lib.list.length) rows.push({ title: 'My List', movies: lib.list });
+      rows = rows.concat(data.rows);
       var html = '<div class="home">' + topbar('home') + '<div class="hero" id="hero"></div><div class="rows" id="screen">';
-      data.rows.forEach(function (row, r) {
+      rows.forEach(function (row) {
         html += '<div class="row" data-row="' + esc(row.title) + '"><h2 class="row-title">' + esc(row.title) +
           '<small>' + row.movies.length + ' films</small></h2><div class="strip">' + row.movies.map(card).join('') + '</div></div>';
       });
       mount(html + '</div></div>');
       restoreFocus() || focus(app.querySelector('.card'));
-    });
+    }
+    get('/api/home', function (err, d) { failure = failure || err; data = d; done(); });
+    get('/api/library', function (err, d) { if (!err) lib = d; done(); }, true);
   }
 
   function showHero(el, m) {
@@ -232,15 +255,17 @@
         (m.music ? '<div><label>Music</label><span>' + esc(m.music) + '</span></div>' : '') + '</div>' +
         '<div class="actions">' +
         (m.videos.length ? '<div class="btn primary focusable" data-key="play" data-play="' + esc(m.videos[0].key) + '"><span class="icon">▶</span>Play trailer</div>' : '') +
-        '</div>' + whereToWatch(m) + '</div></div>';
+        (m.free ? '<div class="btn primary focusable" data-key="free" data-play="' + esc(m.free.key) + '"><span class="icon">\u25B6</span>Free on YouTube</div>' : '') +
+        '<div class="btn focusable" id="list-btn" data-key="mylist" data-action="mylist">' + listLabel(false) + '</div>' +
+        '</div>' + (m.free ? '<div class="where"><span class="hint">Full film, uploaded by ' + esc(m.free.channel) + '</span></div>' : '') + whereToWatch(m) + '</div></div>';
 
       if (m.videos.length > 1) {
         html += '<div class="section"><h2 class="row-title">Trailers, songs and clips</h2><div class="strip">' +
           m.videos.slice(1).map(videoCard).join('') + '</div></div>';
       }
       if (m.cast.length) {
-        html += '<div class="section"><h2 class="row-title">Cast</h2><div class="cast">' + m.cast.map(function (c) {
-          return '<div class="person"><div class="face">' + (c.photo ? '<img loading="lazy" src="' + IMG + 'w185' + c.photo + '" alt="">' : initials(c.name)) +
+        html += '<div class="section"><h2 class="row-title">Cast</h2><div class="cast strip">' + m.cast.map(function (c) {
+          return '<div class="person focusable" data-key="p' + c.id + '" data-go="#/person/' + c.id + '"><div class="face">' + (c.photo ? '<img loading="lazy" src="' + IMG + 'w185' + c.photo + '" alt="">' : initials(c.name)) +
             '</div><b>' + esc(c.name) + '</b><span>' + esc(c.character) + '</span></div>';
         }).join('') + '</div></div>';
       }
@@ -249,6 +274,56 @@
       }
       mount(html + '</div>');
       restoreFocus() || focusFirst();
+      openMovie = m;
+      post('/api/recent', brief(m));
+      get('/api/library', function (e, lib) {
+        if (e || openMovie !== m) return;
+        setListButton(lib.list.some(function (x) { return x.id === m.id; }));
+      }, true);
+    });
+  }
+
+  var openMovie = null;
+
+  function listLabel(inList) {
+    return inList ? '<span class="icon">\u2713</span>In My List' : '<span class="icon">+</span>My List';
+  }
+
+  function setListButton(inList) {
+    var btn = document.getElementById('list-btn');
+    if (!btn) return;
+    btn.innerHTML = listLabel(inList);
+    btn.className = btn.className.replace(/\s*in-list/g, '') + (inList ? ' in-list' : '');
+  }
+
+  function toggleMyList() {
+    if (!openMovie) return;
+    var m = openMovie;
+    post('/api/list/toggle', brief(m), function (err, res) {
+      if (!err && openMovie === m) setListButton(res.inList);
+    });
+  }
+
+  function renderPerson(id) {
+    setBackdrop(null);
+    mount('<div class="screen">' + topbar('') + '<div class="details"><div class="person-photo skel"></div><div class="info">' +
+      '<div class="skel" style="width:26vw;height:3.4vw;margin-bottom:1vw"></div><div class="skel skel-line" style="width:20vw"></div>' +
+      '<div class="skel skel-line" style="width:46vw"></div></div></div></div>');
+    get('/api/person/' + id, function (err, p) {
+      if (err) return message('Couldn\'t load this person', err.message, true);
+      var facts = [p.knownFor, p.birthday && 'Born ' + p.birthday, p.place].filter(Boolean);
+      var html = '<div class="screen" id="screen">' + topbar('') + '<div class="details">' +
+        '<div class="person-photo">' + (p.photo ? '<img src="' + IMG + 'w342' + p.photo + '" alt="">' : '<span>' + initials(p.name) + '</span>') + '</div>' +
+        '<div class="info"><div class="eyebrow">' + (p.films.length ? p.films.length + ' Tamil films' : 'Person') + '</div>' +
+        '<h1>' + esc(p.name) + '</h1>' +
+        (facts.length ? '<div class="meta">' + facts.map(esc).join('<span class="dot">\u00b7</span>') + '</div>' : '') +
+        '<div class="overview bio">' + esc(p.biography || 'No biography yet.') + '</div></div></div>';
+      if (p.films.length) {
+        html += '<div class="section"><h2 class="row-title">Tamil films<small>newest first</small></h2><div class="grid">' +
+          p.films.map(card).join('') + '</div></div>';
+      }
+      mount(html + '</div>');
+      restoreFocus() || focus(app.querySelector('.card')) || focusFirst();
     });
   }
 
@@ -362,6 +437,7 @@
       location.hash = el.getAttribute('data-go');
       return;
     }
+    if (el.getAttribute('data-action') === 'mylist') return toggleMyList();
     if (el.getAttribute('data-action') === 'retry') { cache = {}; route(); }
   }
 
@@ -405,9 +481,12 @@
 
   function route() {
     current = null;
+    openMovie = null;
     var h = location.hash || '#/';
     var m = h.match(/^#\/movie\/(\d+)/);
     if (m) return renderMovie(m[1]);
+    var p = h.match(/^#\/person\/(\d+)/);
+    if (p) return renderPerson(p[1]);
     if (h === '#/search') return renderSearch();
     renderHome();
   }

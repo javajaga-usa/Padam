@@ -5,7 +5,8 @@ Run Padam on a computer at home, then open it in the web browser of any smart TV
 OK and Back. No ads, no tracking, no accounts.
 
 It shows the same lists as the Android TV app (In theatres, Streaming on your apps, Popular, Top rated,
-Coming soon, genres, Classics). It also has Tamil-only search and a details page with cast, crew,
+Coming soon, genres, Classics), plus My List and Recently viewed, which every TV in the home shares
+(saved in `padam-data.json` next to the server). It also has Tamil-only search and a details page with cast, crew,
 where the film is streaming, and official trailers and songs that play full screen.
 
 ## Run it
@@ -70,6 +71,7 @@ A pointer remote (LG Magic Remote) or a mouse also works.
 | Name | Default | Meaning |
 | --- | --- | --- |
 | `TMDB_API_KEY` | (required) | TMDB v3 key or v4 read token |
+| `YOUTUBE_API_KEY` | (optional) | Turns on "Free on YouTube" for films rights holders put on YouTube |
 | `TMDB_REGION` | `IN` | Country used for "streaming on" |
 | `TMDB_LANGUAGE` | `en-IN` | Language for titles and synopses |
 | `PORT` | `80` | Port the TV connects to |

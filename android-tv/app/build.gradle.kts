@@ -27,6 +27,7 @@ android {
         versionName = "0.1.0"
 
         buildConfigField("String", "TMDB_API_KEY", "\"${config("TMDB_API_KEY")}\"")
+        buildConfigField("String", "YOUTUBE_API_KEY", "\"${config("YOUTUBE_API_KEY")}\"")
         buildConfigField("String", "TMDB_REGION", "\"${config("TMDB_REGION", "IN")}\"")
         buildConfigField("String", "TMDB_LANGUAGE", "\"${config("TMDB_LANGUAGE", "en-IN")}\"")
     }

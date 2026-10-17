@@ -8,6 +8,7 @@ const mdns = require('./mdns');
 
 loadDotEnv(path.join(__dirname, '.env'));
 const API_KEY = (process.env.TMDB_API_KEY || '').trim();
+const YOUTUBE_KEY = (process.env.YOUTUBE_API_KEY || '').trim();
 const REGION = process.env.TMDB_REGION || 'IN';
 const LANGUAGE = process.env.TMDB_LANGUAGE || 'en-IN';
 // Port 80 is the browser default, so the TV address needs no ":port". Falls back to 8080 if 80 is unavailable.
@@ -119,13 +120,116 @@ async function movie(id) {
     director: who('Director'),
     music: who('Original Music Composer', 'Music'),
     cast: ((m.credits && m.credits.cast) || []).slice(0, 12)
-      .map((c) => ({ name: c.name, character: c.character || '', photo: c.profile_path })),
+      .map((c) => ({ id: c.id, name: c.name, character: c.character || '', photo: c.profile_path })),
     videos,
     streaming: names([...(wp.flatrate || []), ...(wp.free || []), ...(wp.ads || [])]),
     rentBuy: names([...(wp.rent || []), ...(wp.buy || [])]),
     more: ((m.recommendations && m.recommendations.results) || [])
       .filter((r) => r.original_language === 'ta' && r.poster_path).map(slim),
+    free: await findFree(m.id, m.title, (m.release_date || '').slice(0, 4)),
   };
+}
+
+// ---- Free on YouTube ------------------------------------------------------
+// Finds a full-length upload of the film and keeps it only when YouTube marks it as licensed content
+// (uploaded by a channel that holds the rights through Content ID), it runs over an hour, and its title
+// names the film. Pirated uploads don't carry that flag. Results are cached for a week to save quota.
+
+const freeCache = new Map();
+const WEEK_MS = 7 * 864e5;
+
+async function youtube(endpoint, params) {
+  const url = new URL('https://www.googleapis.com/youtube/v3/' + endpoint);
+  for (const [k, v] of Object.entries({ ...params, key: YOUTUBE_KEY })) url.searchParams.set(k, v);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('YouTube ' + res.status);
+  return res.json();
+}
+
+function isoMinutes(d) {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?/.exec(d || '');
+  return m ? Number(m[1] || 0) * 60 + Number(m[2] || 0) : 0;
+}
+
+const normalize = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+async function findFree(id, title, year) {
+  if (!YOUTUBE_KEY) return null;
+  const hit = freeCache.get(id);
+  if (hit && Date.now() - hit.at < WEEK_MS) return hit.video;
+  let video = null;
+  try {
+    const search = await youtube('search', { part: 'snippet', type: 'video', videoDuration: 'long', maxResults: '10',
+      q: title + ' ' + year + ' Tamil full movie' });
+    const ids = (search.items || []).map((i) => i.id && i.id.videoId).filter(Boolean);
+    if (ids.length) {
+      const details = await youtube('videos', { part: 'snippet,contentDetails', id: ids.join(',') });
+      const found = (details.items || []).find((v) => v.contentDetails && v.contentDetails.licensedContent === true &&
+        isoMinutes(v.contentDetails.duration) >= 60 && normalize(v.snippet.title).includes(normalize(title)));
+      if (found) video = { key: found.id, title: found.snippet.title, channel: found.snippet.channelTitle };
+    }
+  } catch (e) {
+    console.warn('Free on YouTube lookup failed:', e.message);
+    return null;
+  }
+  freeCache.set(id, { at: Date.now(), video });
+  return video;
+}
+
+async function person(id) {
+  const p = await tmdb('person/' + id, { append_to_response: 'movie_credits' });
+  const seen = new Set();
+  const films = ((p.movie_credits && p.movie_credits.cast) || [])
+    .filter((m) => m.original_language === 'ta' && !seen.has(m.id) && seen.add(m.id))
+    .sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''))
+    .map(slim);
+  return {
+    id: p.id, name: p.name, photo: p.profile_path, knownFor: p.known_for_department || null,
+    birthday: p.birthday || null, place: p.place_of_birth || null, biography: p.biography || '', films,
+  };
+}
+
+// ---- My List and Recently viewed -----------------------------------------
+// Kept in a small JSON file next to the server, so every TV in the home shares the same list.
+
+const LIBRARY_FILE = path.join(__dirname, 'padam-data.json');
+let library = { list: [], recent: [] };
+try { library = { ...library, ...JSON.parse(fs.readFileSync(LIBRARY_FILE, 'utf8')) }; } catch (_) { /* first run */ }
+
+function saveLibrary() {
+  fs.writeFile(LIBRARY_FILE, JSON.stringify(library, null, 1), (e) => e && console.warn('Could not save My List:', e.message));
+}
+
+function cleanMovie(m) {
+  if (!m || !Number.isInteger(m.id)) throw Object.assign(new Error('Bad movie'), { status: 400 });
+  const { id, title, year, rating, overview, poster, backdrop, genres } = m;
+  return { id, title: String(title || ''), year: String(year || ''), rating: Number(rating) || 0,
+    overview: String(overview || '').slice(0, 1000), poster: poster || null, backdrop: backdrop || null,
+    genres: Array.isArray(genres) ? genres.slice(0, 3).map(String) : [] };
+}
+
+function toggleList(m) {
+  const movie = cleanMovie(m);
+  const had = library.list.some((x) => x.id === movie.id);
+  library.list = had ? library.list.filter((x) => x.id !== movie.id) : [movie, ...library.list].slice(0, 200);
+  saveLibrary();
+  return { inList: !had, list: library.list };
+}
+
+function addRecent(m) {
+  const movie = cleanMovie(m);
+  library.recent = [movie, ...library.recent.filter((x) => x.id !== movie.id)].slice(0, 20);
+  saveLibrary();
+  return { ok: true };
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (c) => { data += c; if (data.length > 20000) req.destroy(); });
+    req.on('end', () => { try { resolve(JSON.parse(data || '{}')); } catch (e) { reject(Object.assign(e, { status: 400 })); } });
+    req.on('error', reject);
+  });
 }
 
 // Offline fixture data so the UI can be tried without a key (PADAM_MOCK=1).
@@ -144,12 +248,17 @@ const mock = (() => {
       return { ...m, originalTitle: null, tagline: 'Sample tagline', runtime: 154, genres: ['Action', 'Drama'],
         director: 'Sample Director', music: 'Sample Composer',
         cast: ['Kamal Haasan', 'Vijay Sethupathi', 'Fahadh Faasil', 'Gayathrie', 'Kalidas Jayaram', 'Narain']
-          .map((n, i) => ({ name: n, character: 'Role ' + (i + 1), photo: null })),
+          .map((n, i) => ({ id: 500 + i, name: n, character: 'Role ' + (i + 1), photo: null })),
         videos: [{ key: 'dQw4w9WgXcQ', name: 'Official Trailer', type: 'Trailer' }, { key: 'dQw4w9WgXcQ', name: 'Pathala Pathala (Lyric Video)', type: 'Clip' },
           { key: 'dQw4w9WgXcQ', name: 'Teaser', type: 'Teaser' }, { key: 'dQw4w9WgXcQ', name: 'Making of', type: 'Behind the Scenes' }],
         streaming: [{ name: 'Netflix', logo: null }, { name: 'Amazon Prime Video', logo: null }],
-        rentBuy: [{ name: 'Apple TV', logo: null }], more: movies.slice(0, 6) };
+        rentBuy: [{ name: 'Apple TV', logo: null }], more: movies.slice(0, 6),
+        free: m.id % 2 ? null : { key: 'dQw4w9WgXcQ', title: m.title + ' Full Movie', channel: 'Sample Films Official' } };
     },
+    person: (id) => ({ id: Number(id), name: 'Kamal Haasan', photo: null, knownFor: 'Acting', birthday: '1954-11-07',
+      place: 'Paramakudi, Tamil Nadu, India',
+      biography: 'Sample biography shown in mock mode. An actor, director and writer whose career spans six decades, known for constant reinvention and technical ambition in Tamil cinema.',
+      films: movies.slice().reverse() }),
   };
 })();
 
@@ -163,21 +272,26 @@ function send(res, status, body, type) {
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
-async function api(pathname, query) {
-  const src = MOCK ? mock : { home, search, movie };
+async function api(pathname, query, req) {
+  const src = MOCK ? mock : { home, search, movie, person };
+  if (pathname === '/api/library') return library;
+  if (pathname === '/api/list/toggle' && req.method === 'POST') return toggleList(await readBody(req));
+  if (pathname === '/api/recent' && req.method === 'POST') return addRecent(await readBody(req));
   if (pathname === '/api/config') return { region: REGION, ready: MOCK || !!API_KEY, mock: MOCK };
   if (!MOCK && !API_KEY) throw Object.assign(new Error('TMDB_API_KEY is not set on the server.'), { status: 503 });
   if (pathname === '/api/home') return src.home();
   if (pathname === '/api/search') return src.search((query.get('q') || '').trim());
   const m = pathname.match(/^\/api\/movie\/(\d+)$/);
   if (m) return src.movie(m[1]);
+  const p = pathname.match(/^\/api\/person\/(\d+)$/);
+  if (p) return src.person(p[1]);
   throw Object.assign(new Error('Not found'), { status: 404 });
 }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://local');
   try {
-    if (url.pathname.startsWith('/api/')) return send(res, 200, await api(url.pathname, url.searchParams));
+    if (url.pathname.startsWith('/api/')) return send(res, 200, await api(url.pathname, url.searchParams, req));
     const file = path.normalize(path.join(PUBLIC, url.pathname === '/' ? 'index.html' : url.pathname));
     if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       return send(res, 404, 'Not found', 'text/plain');

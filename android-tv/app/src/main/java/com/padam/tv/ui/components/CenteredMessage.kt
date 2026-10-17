@@ -73,3 +73,17 @@ fun PrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modif
         ),
     ) { Text(label, fontWeight = FontWeight.SemiBold) }
 }
+
+@Composable
+fun SecondaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, highlighted: Boolean = false) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        colors = ButtonDefaults.colors(
+            containerColor = if (highlighted) Accent.copy(alpha = 0.18f) else Surface2,
+            contentColor = if (highlighted) Accent else TextPrimary,
+            focusedContainerColor = Accent,
+            focusedContentColor = AccentInk,
+        ),
+    ) { Text(label, fontWeight = FontWeight.SemiBold) }
+}

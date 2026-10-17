@@ -54,13 +54,22 @@ private val Gutter = 56.dp
 fun HomeScreen(
     onMovieClick: (Int) -> Unit,
     onSearchClick: () -> Unit,
+    onChangeKey: () -> Unit,
     viewModel: HomeViewModel = viewModel { HomeViewModel(Graph.repository) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val recent by Graph.library.recent.collectAsStateWithLifecycle()
+    val myList by Graph.library.myList.collectAsStateWithLifecycle()
     when (val s = state) {
         HomeState.Loading -> HomeSkeleton(onSearchClick)
-        is HomeState.Error -> CenteredMessage("Couldn't load films", s.message, actionLabel = "Try again", onAction = viewModel::load)
-        is HomeState.Ready -> HomeContent(s.rows, onMovieClick, onSearchClick)
+        is HomeState.Error -> CenteredMessage("Couldn't load films", s.message, actionLabel = "Change TMDB key", onAction = onChangeKey)
+        is HomeState.Ready -> {
+            val personal = listOfNotNull(
+                recent.takeIf { it.isNotEmpty() }?.let { HomeRow("Recently viewed", it) },
+                myList.takeIf { it.isNotEmpty() }?.let { HomeRow("My List", it) },
+            )
+            HomeContent(personal + s.rows, onMovieClick, onSearchClick)
+        }
     }
 }
 

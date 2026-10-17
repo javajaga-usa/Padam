@@ -77,6 +77,7 @@ data class Credits(
 
 @Serializable
 data class CastMember(
+    val id: Int = 0,
     val name: String,
     val character: String? = null,
     @SerialName("profile_path") val profilePath: String? = null,
@@ -115,6 +116,42 @@ data class Provider(
     @SerialName("provider_id") val id: Int,
     @SerialName("provider_name") val name: String,
     @SerialName("logo_path") val logoPath: String? = null,
+)
+
+@Serializable
+data class PersonDetails(
+    val id: Int,
+    val name: String = "",
+    val biography: String = "",
+    val birthday: String? = null,
+    @SerialName("place_of_birth") val placeOfBirth: String? = null,
+    @SerialName("profile_path") val profilePath: String? = null,
+    @SerialName("known_for_department") val knownFor: String? = null,
+    @SerialName("movie_credits") val movieCredits: PersonCredits? = null,
+) {
+    /** Tamil films, newest first, without duplicates from multiple roles. */
+    val tamilFilms: List<Movie>
+        get() = movieCredits?.cast.orEmpty()
+            .filter { it.originalLanguage == "ta" }
+            .distinctBy { it.id }
+            .sortedByDescending { it.releaseDate.orEmpty() }
+}
+
+@Serializable
+data class PersonCredits(val cast: List<Movie> = emptyList())
+
+/** The short form of a film kept in My List and Recently viewed. */
+fun MovieDetails.toMovie() = Movie(
+    id = id,
+    title = title,
+    originalTitle = originalTitle,
+    overview = overview,
+    posterPath = posterPath,
+    backdropPath = backdropPath,
+    releaseDate = releaseDate,
+    voteAverage = voteAverage,
+    originalLanguage = "ta",
+    genreIds = genres.map { it.id },
 )
 
 object TmdbImages {

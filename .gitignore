@@ -8,3 +8,4 @@ captures/
 .kotlin/
 .env
 node_modules/
+padam-data.json

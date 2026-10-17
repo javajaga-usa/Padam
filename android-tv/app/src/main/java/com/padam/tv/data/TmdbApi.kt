@@ -28,6 +28,12 @@ interface TmdbApi {
         @Query("append_to_response") append: String = "credits,videos,watch/providers,recommendations",
     ): MovieDetails
 
+    @GET("person/{id}")
+    suspend fun person(
+        @Path("id") id: Int,
+        @Query("append_to_response") append: String = "movie_credits",
+    ): PersonDetails
+
     companion object {
         private const val BASE_URL = "https://api.themoviedb.org/3/"
 

@@ -23,6 +23,7 @@ jobs:
       - name: Build debug APK
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug

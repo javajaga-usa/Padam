@@ -76,6 +76,8 @@ class MovieRepository(
     suspend fun details(id: Int): MovieDetails =
         detailsCache[id] ?: api.details(id).also { detailsCache[id] = it }
 
+    suspend fun person(id: Int): PersonDetails = api.person(id)
+
     fun providersFor(details: MovieDetails): CountryProviders? =
         details.watchProviders?.results?.get(region)
 }
