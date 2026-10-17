@@ -21,8 +21,20 @@ data class Movie(
     @SerialName("release_date") val releaseDate: String? = null,
     @SerialName("vote_average") val voteAverage: Double = 0.0,
     @SerialName("original_language") val originalLanguage: String = "",
+    @SerialName("genre_ids") val genreIds: List<Int> = emptyList(),
 ) {
     val year: String get() = releaseDate?.take(4).orEmpty()
+    val genreNames: List<String> get() = genreIds.mapNotNull { Genres.names[it] }.take(3)
+}
+
+/** TMDB's fixed movie genre ids, so list items can show genre names without an extra request. */
+object Genres {
+    val names = mapOf(
+        28 to "Action", 12 to "Adventure", 16 to "Animation", 35 to "Comedy", 80 to "Crime",
+        99 to "Documentary", 18 to "Drama", 10751 to "Family", 14 to "Fantasy", 36 to "History",
+        27 to "Horror", 10402 to "Music", 9648 to "Mystery", 10749 to "Romance", 878 to "Sci-Fi",
+        10770 to "TV Movie", 53 to "Thriller", 10752 to "War", 37 to "Western",
+    )
 }
 
 @Serializable
@@ -110,4 +122,5 @@ object TmdbImages {
     fun backdrop(path: String?) = path?.let { "https://image.tmdb.org/t/p/w1280$it" }
     fun logo(path: String?) = path?.let { "https://image.tmdb.org/t/p/w92$it" }
     fun profile(path: String?) = path?.let { "https://image.tmdb.org/t/p/w185$it" }
+    fun youTubeThumb(key: String) = "https://i.ytimg.com/vi/$key/mqdefault.jpg"
 }

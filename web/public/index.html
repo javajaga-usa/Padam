@@ -3,14 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0b0f">
 <title>Padam</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f0a73a'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='%231b1206'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="backdrop"></div>
+<div id="backdrop"><div class="layer"></div><div class="layer"></div></div>
 <div id="app"></div>
+<div class="hints" id="hints"><kbd>OK</kbd>Open<kbd>Back</kbd>Go back</div>
 <div id="player" hidden>
-  <iframe id="player-frame" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
+  <iframe id="player-frame" title="Video player" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
   <div class="player-hint">Press Back to close</div>
 </div>
 <script src="app.js"></script>

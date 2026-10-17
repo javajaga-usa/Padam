@@ -67,9 +67,15 @@ function shelves() {
   ];
 }
 
+// TMDB's fixed movie genre ids, so list items can show genre names without an extra request.
+const GENRES = { 28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime', 99: 'Documentary',
+  18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music', 9648: 'Mystery',
+  10749: 'Romance', 878: 'Sci-Fi', 10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western' };
+
 const slim = (m) => ({
   id: m.id, title: m.title, year: (m.release_date || '').slice(0, 4), rating: m.vote_average || 0,
   overview: m.overview || '', poster: m.poster_path, backdrop: m.backdrop_path,
+  genres: (m.genre_ids || []).map((g) => GENRES[g]).filter(Boolean).slice(0, 3),
 });
 
 async function home() {
@@ -99,7 +105,11 @@ async function movie(id) {
     .sort((a, b) => (b.type === 'Trailer') - (a.type === 'Trailer') || b.official - a.official)
     .map((v) => ({ key: v.key, name: v.name, type: v.type }));
   const wp = (m['watch/providers'] && m['watch/providers'].results && m['watch/providers'].results[REGION]) || {};
-  const names = (list) => (list || []).map((p) => ({ name: p.provider_name, logo: p.logo_path }));
+  const names = (list) => {
+    const seen = new Set();
+    return (list || []).filter((p) => !seen.has(p.provider_id) && seen.add(p.provider_id))
+      .map((p) => ({ name: p.provider_name, logo: p.logo_path }));
+  };
   return {
     ...slim(m),
     originalTitle: m.original_title !== m.title ? m.original_title : null,
@@ -108,7 +118,8 @@ async function movie(id) {
     genres: (m.genres || []).map((g) => g.name),
     director: who('Director'),
     music: who('Original Music Composer', 'Music'),
-    cast: ((m.credits && m.credits.cast) || []).slice(0, 8).map((c) => c.name),
+    cast: ((m.credits && m.credits.cast) || []).slice(0, 12)
+      .map((c) => ({ name: c.name, character: c.character || '', photo: c.profile_path })),
     videos,
     streaming: names([...(wp.flatrate || []), ...(wp.free || []), ...(wp.ads || [])]),
     rentBuy: names([...(wp.rent || []), ...(wp.buy || [])]),
@@ -122,7 +133,8 @@ const mock = (() => {
   const titles = ['Vikram', 'Jailer', 'Nayakan', 'Anbe Sivam', 'Super Deluxe', 'Asuran', 'Kaithi', 'Vada Chennai',
     'Jigarthanda', 'Soorarai Pottru', 'Visaranai', '96', 'Pariyerum Perumal', 'Karnan', 'Mahanadhi'];
   const movies = titles.map((t, i) => ({ id: 1000 + i, title: t, year: String(1987 + i * 2), rating: 7 + (i % 3) / 2,
-    overview: t + ' is a Tamil film. This is sample text shown in mock mode.', poster: null, backdrop: null }));
+    overview: t + ' is a Tamil film. This is sample text shown in mock mode so the layout can be checked without a TMDB key. It runs long enough to wrap onto a few lines.',
+    poster: null, backdrop: null, genres: [['Action', 'Thriller'], ['Drama'], ['Comedy', 'Family'], ['Crime', 'Drama']][i % 4] }));
   const rows = shelves().map(([title], r) => ({ title, movies: movies.slice(r % 5).concat(movies.slice(0, r % 5)) }));
   return {
     home: () => ({ rows }),
@@ -130,8 +142,11 @@ const mock = (() => {
     movie: (id) => {
       const m = movies.find((x) => x.id === Number(id)) || movies[0];
       return { ...m, originalTitle: null, tagline: 'Sample tagline', runtime: 154, genres: ['Action', 'Drama'],
-        director: 'Sample Director', music: 'Sample Composer', cast: ['Actor One', 'Actor Two', 'Actor Three'],
-        videos: [{ key: 'dQw4w9WgXcQ', name: 'Official Trailer', type: 'Trailer' }, { key: 'dQw4w9WgXcQ', name: 'Song', type: 'Clip' }],
+        director: 'Sample Director', music: 'Sample Composer',
+        cast: ['Kamal Haasan', 'Vijay Sethupathi', 'Fahadh Faasil', 'Gayathrie', 'Kalidas Jayaram', 'Narain']
+          .map((n, i) => ({ name: n, character: 'Role ' + (i + 1), photo: null })),
+        videos: [{ key: 'dQw4w9WgXcQ', name: 'Official Trailer', type: 'Trailer' }, { key: 'dQw4w9WgXcQ', name: 'Pathala Pathala (Lyric Video)', type: 'Clip' },
+          { key: 'dQw4w9WgXcQ', name: 'Teaser', type: 'Teaser' }, { key: 'dQw4w9WgXcQ', name: 'Making of', type: 'Behind the Scenes' }],
         streaming: [{ name: 'Netflix', logo: null }, { name: 'Amazon Prime Video', logo: null }],
         rentBuy: [{ name: 'Apple TV', logo: null }], more: movies.slice(0, 6) };
     },

@@ -27,7 +27,10 @@ class MainActivity : ComponentActivity() {
             PadamTheme {
                 Box(Modifier.fillMaxSize().background(Background)) {
                     if (Graph.hasApiKey) PadamNavHost()
-                    else CenteredMessage("Add TMDB_API_KEY to local.properties (or the environment) and rebuild. See README.")
+                    else CenteredMessage(
+                        "One more step",
+                        "Add your free TMDB_API_KEY to local.properties (or the build environment) and rebuild. The README shows how.",
+                    )
                 }
             }
         }
@@ -38,18 +41,25 @@ class MainActivity : ComponentActivity() {
 private fun PadamNavHost() {
     val nav = rememberNavController()
     val openMovie: (Int) -> Unit = { id -> nav.navigate("movie/$id") }
+    val goHome: () -> Unit = { nav.popBackStack("home", inclusive = false) }
+    val goSearch: () -> Unit = { nav.navigate("search") { launchSingleTop = true } }
     NavHost(navController = nav, startDestination = "home") {
         composable("home") {
-            HomeScreen(onMovieClick = openMovie, onSearchClick = { nav.navigate("search") })
+            HomeScreen(onMovieClick = openMovie, onSearchClick = goSearch)
         }
         composable("search") {
-            SearchScreen(onMovieClick = openMovie)
+            SearchScreen(onMovieClick = openMovie, onHome = goHome)
         }
         composable(
             "movie/{id}",
             arguments = listOf(navArgument("id") { type = NavType.IntType }),
         ) { entry ->
-            DetailsScreen(movieId = entry.arguments?.getInt("id") ?: 0, onMovieClick = openMovie)
+            DetailsScreen(
+                movieId = entry.arguments?.getInt("id") ?: 0,
+                onMovieClick = openMovie,
+                onHome = goHome,
+                onSearch = goSearch,
+            )
         }
     }
 }

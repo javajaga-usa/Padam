@@ -11,10 +11,12 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 data class SearchState(
     val query: String = "",
     val results: List<Movie> = emptyList(),
+    val suggestions: List<Movie> = emptyList(),
     val searching: Boolean = false,
     val error: Boolean = false,
 )
@@ -26,6 +28,14 @@ class SearchViewModel(private val repository: MovieRepository) : ViewModel() {
     private val query = MutableStateFlow("")
 
     init {
+        // Popular films fill the screen until the person types something.
+        viewModelScope.launch {
+            val popular = repository.shelves().firstOrNull { it.title == "Popular" }
+            if (popular != null) {
+                val movies = runCatching { repository.shelf(popular) }.getOrDefault(emptyList())
+                _state.value = _state.value.copy(suggestions = movies.take(14))
+            }
+        }
         query.debounce(350).distinctUntilChanged().onEach { q ->
             if (q.isBlank()) {
                 _state.value = _state.value.copy(results = emptyList(), searching = false, error = false)
