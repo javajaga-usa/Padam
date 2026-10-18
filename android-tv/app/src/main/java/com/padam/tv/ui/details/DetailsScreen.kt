@@ -20,6 +20,13 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.padam.tv.BuildConfig
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -115,12 +122,23 @@ private fun DetailsContent(
     val rentOrBuy = providers?.let { (it.rent + it.buy).distinctBy { p -> p.id } }.orEmpty()
         .filter { p -> streaming.none { it.id == p.id } }
     val videos = movie.youTubeVideos
-    val cast = movie.credits?.cast.orEmpty().take(12)
+    val cast = movie.credits?.cast.orEmpty().distinctBy { it.id }.take(20)
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    // On a long page, Back first returns to the top instead of leaving the film.
+    BackHandler(enabled = listState.firstVisibleItemIndex > 0) {
+        scope.launch {
+            listState.animateScrollToItem(0)
+            runCatching { primaryAction.requestFocus() }
+        }
+    }
+    val released = movie.releaseDate?.let { runCatching { LocalDate.parse(it).format(DateTimeFormatter.ofPattern("d MMM yyyy")) }.getOrNull() }
     val more = movie.recommendations?.results.orEmpty().filter { it.originalLanguage == "ta" && it.posterPath != null }
 
     Box(Modifier.fillMaxSize()) {
         Backdrop(movie.backdropPath)
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(start = Gutter, end = Gutter, top = 20.dp, bottom = 48.dp),
             verticalArrangement = Arrangement.spacedBy(30.dp),
         ) {
@@ -147,6 +165,7 @@ private fun DetailsContent(
                         MetaRow(
                             movie.voteAverage,
                             listOfNotNull(
+                                movie.certification(BuildConfig.TMDB_REGION),
                                 movie.year.ifBlank { null },
                                 movie.runtime?.takeIf { it > 0 }?.let { "${it / 60}h ${it % 60}m" },
                             ),
@@ -165,6 +184,7 @@ private fun DetailsContent(
                         Row(horizontalArrangement = Arrangement.spacedBy(40.dp), modifier = Modifier.padding(top = 14.dp)) {
                             movie.director?.let { Credit("Director", it) }
                             movie.music?.let { Credit("Music", it) }
+                            released?.let { Credit("Released", it) }
                         }
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -235,8 +255,8 @@ private fun DetailsContent(
                 item {
                     Column {
                         SectionTitle("Cast", modifier = Modifier.padding(bottom = 14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            cast.take(9).forEach { c ->
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 6.dp)) {
+                            items(cast, key = { it.id }) { c ->
                                 Person(c.name, c.character.orEmpty(), c.profilePath, onClick = { onPersonClick(c.id) })
                             }
                         }

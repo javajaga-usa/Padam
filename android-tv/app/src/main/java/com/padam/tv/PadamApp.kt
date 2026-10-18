@@ -28,6 +28,7 @@ object Graph {
         appContext = context.applicationContext
         library = Library(appContext)
         _youTubeInApp.value = prefs.getBoolean("youtube_in_app", true)
+        _recentSearches.value = prefs.getString("recent_searches", null).orEmpty().split('\n').filter { it.isNotBlank() }
         _apiKey.value = prefs.getString("tmdb_key", null)?.takeIf { it.isNotBlank() } ?: BuildConfig.TMDB_API_KEY
     }
 
@@ -38,6 +39,18 @@ object Graph {
     fun setYouTubeInApp(inApp: Boolean) {
         prefs.edit().putBoolean("youtube_in_app", inApp).apply()
         _youTubeInApp.value = inApp
+    }
+
+    /** The last few searches, newest first, offered again on the search screen. */
+    private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
+    val recentSearches: StateFlow<List<String>> = _recentSearches
+
+    fun rememberSearch(query: String) {
+        val q = query.trim()
+        if (q.length < 2) return
+        val list = (listOf(q) + _recentSearches.value.filterNot { it.equals(q, ignoreCase = true) }).take(6)
+        prefs.edit().putString("recent_searches", list.joinToString("\n")).apply()
+        _recentSearches.value = list
     }
 
     fun setApiKey(key: String) {

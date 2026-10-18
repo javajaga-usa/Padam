@@ -25,7 +25,7 @@ interface TmdbApi {
     @GET("movie/{id}")
     suspend fun details(
         @Path("id") id: Int,
-        @Query("append_to_response") append: String = "credits,videos,watch/providers,recommendations",
+        @Query("append_to_response") append: String = "credits,videos,watch/providers,recommendations,release_dates",
     ): MovieDetails
 
     @GET("person/{id}")

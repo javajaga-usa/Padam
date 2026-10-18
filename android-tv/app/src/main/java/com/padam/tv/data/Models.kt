@@ -54,8 +54,13 @@ data class MovieDetails(
     val videos: VideoList? = null,
     @SerialName("watch/providers") val watchProviders: WatchProviders? = null,
     val recommendations: MoviePage? = null,
+    @SerialName("release_dates") val releaseDates: ReleaseDates? = null,
 ) {
     val year: String get() = releaseDate?.take(4).orEmpty()
+
+    /** The age rating for a country, such as U, UA or A in India. */
+    fun certification(region: String): String? =
+        releaseDates?.results?.firstOrNull { it.country == region }?.dates?.map { it.certification.trim() }?.firstOrNull { it.isNotEmpty() }
     val director: String? get() = credits?.crew?.firstOrNull { it.job == "Director" }?.name
     val music: String? get() = credits?.crew?.firstOrNull { it.job == "Original Music Composer" || it.job == "Music" }?.name
 
@@ -68,6 +73,18 @@ data class MovieDetails(
 
 @Serializable
 data class Genre(val id: Int, val name: String)
+
+@Serializable
+data class ReleaseDates(val results: List<CountryRelease> = emptyList())
+
+@Serializable
+data class CountryRelease(
+    @SerialName("iso_3166_1") val country: String = "",
+    @SerialName("release_dates") val dates: List<ReleaseDate> = emptyList(),
+)
+
+@Serializable
+data class ReleaseDate(val certification: String = "")
 
 @Serializable
 data class Credits(
