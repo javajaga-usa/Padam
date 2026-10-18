@@ -13,6 +13,22 @@
   var moviesById = {};
   var homeRows = null;
   var lastQuery = '';
+  var heroTimer = null;
+  var banner = { films: [], index: 0, timer: null };
+  var TOP10 = 'Top 10 Tamil films';
+
+  // ---- settings (kept in this TV browser only) ----------------------------
+
+  var SETTINGS_KEY = 'padam.settings';
+  function loadSettings() {
+    var s = null;
+    try { s = JSON.parse(window.localStorage.getItem(SETTINGS_KEY)); } catch (e) { /* storage blocked or empty */ }
+    return { player: s && s.player === 'youtube' ? 'youtube' : 'padam' };
+  }
+  function saveSettings(s) {
+    try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* storage blocked: keep it for this visit */ }
+  }
+  var settings = loadSettings();
 
   // ---- helpers ------------------------------------------------------------
 
@@ -78,14 +94,37 @@
     return '<div class="card focusable" data-key="m' + m.id + '" data-go="#/movie/' + m.id + '" data-movie="' + m.id + '">' +
       '<div class="fallback" style="background:linear-gradient(160deg,hsl(' + hue(m.id) + ',35%,26%),hsl(' + ((hue(m.id) + 40) % 360) + ',30%,12%))">' +
       '<i></i><b>' + esc(m.title) + '</b><span>' + esc(m.year) + '</span></div>' +
-      (m.poster ? '<img loading="lazy" src="' + IMG + 'w342' + m.poster + '" alt="" onerror="this.parentNode.removeChild(this)">' : '') +
+      (m.poster ? '<img loading="lazy" src="' + IMG + 'w342' + m.poster + '" alt="" onerror="if(this.parentNode)this.parentNode.removeChild(this)">' : '') +
       '</div>';
+  }
+
+  function fallbackBg(id) {
+    return 'background:linear-gradient(160deg,hsl(' + hue(id) + ',35%,26%),hsl(' + ((hue(id) + 40) % 360) + ',30%,12%))';
+  }
+
+  // A 16:9 backdrop card with the title on a bottom gradient (Recently viewed).
+  function wideCard(m) {
+    moviesById[m.id] = m;
+    return '<div class="card wide focusable" data-key="w' + m.id + '" data-go="#/movie/' + m.id + '" data-movie="' + m.id + '">' +
+      '<div class="fallback" style="' + fallbackBg(m.id) + '"></div>' +
+      (m.backdrop ? '<img loading="lazy" src="' + IMG + 'w780' + m.backdrop + '" alt="" onerror="if(this.parentNode)this.parentNode.removeChild(this)">' : '') +
+      '<div class="caption"><b>' + esc(m.title) + '</b><span>' + esc(m.year) + '</span></div></div>';
+  }
+
+  // A poster with a big faint rank number beside it (Top 10).
+  function rankedCard(m, i) {
+    return '<div class="ranked"><span class="rank">' + (i + 1) + '</span>' + card(m) + '</div>';
+  }
+
+  function closest(el, cls) {
+    while (el && el !== document && !(el.className && el.className.indexOf && (' ' + el.className + ' ').indexOf(' ' + cls + ' ') >= 0)) el = el.parentNode;
+    return el && el !== document ? el : null;
   }
 
   function videoCard(v, i) {
     return '<div class="vcard focusable" data-key="v' + i + '" data-play="' + esc(v.key) + '">' +
       '<div class="thumb"><img loading="lazy" src="https://i.ytimg.com/vi/' + encodeURIComponent(v.key) + '/mqdefault.jpg" alt="" ' +
-      'onerror="this.parentNode.removeChild(this)"><span class="play"></span></div>' +
+      'onerror="if(this.parentNode)this.parentNode.removeChild(this)"><span class="play"></span></div>' +
       '<div class="label">' + esc(v.name) + '</div><div class="kind">' + esc(v.type) + '</div></div>';
   }
 
@@ -113,6 +152,7 @@
       '<div class="nav">' +
       '<div class="pill focusable' + (active === 'home' ? ' active' : '') + '" data-key="nav-home" data-go="#/">Home</div>' +
       '<div class="pill focusable' + (active === 'search' ? ' active' : '') + '" data-key="nav-search" data-go="#/search">Search</div>' +
+      '<div class="pill focusable' + (active === 'settings' ? ' active' : '') + '" data-key="nav-settings" data-go="#/settings">Settings</div>' +
       '</div><div class="clock" id="clock"></div></div>';
   }
 
@@ -158,25 +198,71 @@
       if (failure) return message('Couldn\'t load films', failure.message, true);
       homeRows = data.rows;
       var rows = [];
-      if (lib.recent.length) rows.push({ title: 'Recently viewed', movies: lib.recent });
+      if (lib.recent.length) rows.push({ title: 'Recently viewed', movies: lib.recent, kind: 'wide' });
       if (lib.list.length) rows.push({ title: 'My List', movies: lib.list });
-      rows = rows.concat(data.rows);
+      rows = rows.concat(data.rows.map(function (r) {
+        return r.title === 'Popular' ? { title: TOP10, movies: r.movies.slice(0, 10), kind: 'top10' } : r;
+      }));
+      banner.films = data.rows.length ? data.rows[0].movies.filter(function (m) { return m.backdrop; }).slice(0, 6) : [];
+      banner.films.forEach(function (m) { moviesById[m.id] = m; });
+      if (banner.index >= banner.films.length) banner.index = 0;
       var html = '<div class="home">' + topbar('home') + '<div class="hero" id="hero"></div><div class="rows" id="screen">';
+      if (banner.films.length) {
+        html += '<div class="row banner-row"><div class="banner focusable" id="banner" data-key="featured" data-banner="1"></div></div>';
+      }
       rows.forEach(function (row) {
-        html += '<div class="row" data-row="' + esc(row.title) + '"><h2 class="row-title">' + esc(row.title) +
-          '<small>' + row.movies.length + ' films</small></h2><div class="strip">' + row.movies.map(card).join('') + '</div></div>';
+        var cards = row.kind === 'wide' ? row.movies.map(wideCard) : row.kind === 'top10' ? row.movies.map(rankedCard) : row.movies.map(card);
+        html += '<div class="row' + (row.kind ? ' row-' + row.kind : '') + '" data-row="' + esc(row.title) + '"><h2 class="row-title">' + esc(row.title) +
+          (row.kind === 'top10' ? '' : '<small>' + row.movies.length + ' films</small>') + '</h2><div class="strip">' + cards.join('') + '</div></div>';
       });
       mount(html + '</div></div>');
-      restoreFocus() || focus(app.querySelector('.card'));
+      drawBanner();
+      startBanner();
+      restoreFocus() || focus(document.getElementById('banner') || app.querySelector('.card'));
     }
     get('/api/home', function (err, d) { failure = failure || err; data = d; done(); });
     get('/api/library', function (err, d) { if (!err) lib = d; done(); }, true);
   }
 
+  // ---- featured banner ----------------------------------------------------
+
+  function drawBanner() {
+    var el = document.getElementById('banner');
+    var m = banner.films[banner.index];
+    if (!el || !m) return;
+    el.setAttribute('data-go', '#/movie/' + m.id);
+    var dots = '';
+    for (var i = 0; i < banner.films.length; i++) dots += '<i' + (i === banner.index ? ' class="on"' : '') + '></i>';
+    el.innerHTML = '<div class="fallback" style="' + fallbackBg(m.id) + '"></div>' +
+      '<img src="' + IMG + 'w1280' + m.backdrop + '" alt="" onerror="if(this.parentNode)this.parentNode.removeChild(this)">' +
+      '<div class="shade"></div><div class="banner-text fade"><div class="eyebrow">Featured</div>' +
+      '<h1>' + esc(m.title) + '</h1><div class="meta">' + metaHtml(m) + '</div>' +
+      '<div class="overview">' + esc(m.overview || 'No synopsis yet.') + '</div></div>' +
+      '<div class="dots">' + dots + '</div>';
+  }
+
+  function stepBanner(by) {
+    if (!banner.films.length) return;
+    banner.index = (banner.index + by + banner.films.length) % banner.films.length;
+    drawBanner();
+    startBanner(); // a manual step restarts the 7-second wait
+  }
+
+  function startBanner() {
+    clearInterval(banner.timer);
+    banner.timer = null;
+    if (banner.films.length < 2) return;
+    banner.timer = setInterval(function () {
+      if (!document.getElementById('banner')) { clearInterval(banner.timer); banner.timer = null; return; }
+      if (player.hidden) stepBanner(1);
+    }, 7000);
+  }
+
   function showHero(el, m) {
     var hero = document.getElementById('hero');
     if (!hero || !m) return;
-    var row = el.parentNode && el.parentNode.parentNode && el.parentNode.parentNode.getAttribute('data-row');
+    var rowEl = closest(el, 'row');
+    var row = rowEl && rowEl.getAttribute('data-row');
     setBackdrop(m.backdrop);
     hero.innerHTML = '<div class="fade">' + (row ? '<div class="eyebrow">' + esc(row) + '</div>' : '') +
       '<h1>' + esc(m.title) + '</h1><div class="meta">' + metaHtml(m) + '</div>' +
@@ -333,6 +419,29 @@
     });
   }
 
+  function renderSettings() {
+    setBackdrop(null);
+    function choice(value, label) {
+      return '<div class="btn focusable' + (settings.player === value ? ' selected' : '') + '" data-key="player-' + value +
+        '" data-action="player" data-value="' + value + '">' + (settings.player === value ? '<span class="icon">✓</span>' : '') + label + '</div>';
+    }
+    mount('<div class="screen" id="screen">' + topbar('settings') + '<div class="settings"><h1>Settings</h1>' +
+      '<div class="setting"><div class="setting-label">Play YouTube videos in</div>' +
+      '<div class="actions">' + choice('padam', 'Padam') + choice('youtube', 'YouTube') + '</div>' +
+      '<p class="setting-help"><b>Padam</b> plays trailers, songs and free films full screen right here. Press Back to return.</p>' +
+      '<p class="setting-help"><b>YouTube</b> opens the video on youtube.com in this tab instead. If you have YouTube Premium, ' +
+      'choose this and sign in to YouTube in this browser: Premium removes ads only on YouTube itself, not in players on other sites.</p>' +
+      '<p class="setting-help faint">Saved in this TV\'s browser only.</p></div></div></div>');
+    restoreFocus() || focus(app.querySelector('.selected'));
+  }
+
+  function setPlayer(value) {
+    settings.player = value;
+    saveSettings(settings);
+    lastFocus['#/settings'] = 'player-' + value;
+    renderSettings();
+  }
+
   function whereToWatch(m) {
     function chips(list) {
       return list.map(function (p) {
@@ -351,6 +460,10 @@
   // ---- player -------------------------------------------------------------
 
   function play(key) {
+    if (settings.player === 'youtube') {
+      location.href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(key);
+      return;
+    }
     playerFrame.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(key) + '?autoplay=1&rel=0&modestbranding=1';
     player.hidden = false;
     // A history entry means the TV browser's own Back button closes the player.
@@ -372,9 +485,20 @@
     current = el;
     el.className += ' focused';
     el.focus();
+    var home = closest(el, 'home');
+    var onBanner = !!el.getAttribute('data-banner');
+    // The banner already shows its film, so the hero steps aside while the banner has focus.
+    var wasSpotlight = !!home && home.className.indexOf('spotlight') >= 0;
+    if (home) home.className = home.className.replace(/\s*spotlight/g, '') + (onBanner ? ' spotlight' : '');
     reveal(el);
     var id = el.getAttribute('data-movie');
-    if (id && moviesById[id] && document.getElementById('hero')) showHero(el, moviesById[id]);
+    var hero = document.getElementById('hero');
+    clearTimeout(heroTimer);
+    if (id && moviesById[id] && hero) {
+      // Wait for focus to settle so holding an arrow key doesn't redraw the hero on every card.
+      if (!hero.firstChild || wasSpotlight) showHero(el, moviesById[id]);
+      else heroTimer = setTimeout(function () { if (current === el) showHero(el, moviesById[id]); }, 140);
+    } else if (onBanner) setBackdrop(null);
     lastFocus[location.hash || '#/'] = el.getAttribute('data-key');
     return true;
   }
@@ -394,10 +518,11 @@
 
   // Keep the focused element visible inside its horizontal strip and the vertical screen.
   function reveal(el) {
-    var strip = el.parentNode;
-    var inStrip = strip && strip.className.indexOf('strip') >= 0;
+    var item = el.parentNode && el.parentNode.className === 'ranked' ? el.parentNode : el;
+    var strip = item.parentNode;
+    var inStrip = strip && strip.className && strip.className.indexOf('strip') >= 0;
     if (inStrip) {
-      var s = strip.getBoundingClientRect(), r = el.getBoundingClientRect();
+      var s = strip.getBoundingClientRect(), r = item.getBoundingClientRect();
       if (r.right > s.right) strip.scrollLeft += r.right - s.right + r.width * 0.3;
       else if (r.left < s.left) strip.scrollLeft -= s.left - r.left + r.width * 0.3;
     }
@@ -412,6 +537,13 @@
 
   function move(dir) {
     if (!current || !document.body.contains(current)) return focusFirst();
+    // The banner keeps Left/Right for stepping through its films.
+    if (current.getAttribute('data-banner') && (dir === 'left' || dir === 'right')) return stepBanner(dir === 'left' ? -1 : 1);
+    // Down from the full-width banner starts the next row at its first film, not the one under the banner's centre.
+    if (current.getAttribute('data-banner') && dir === 'down') {
+      var next = closest(current, 'row').nextSibling;
+      if (next && focus(next.querySelector('.focusable'))) return;
+    }
     var from = current.getBoundingClientRect();
     var fx = from.left + from.width / 2, fy = from.top + from.height / 2;
     var best = null, bestScore = Infinity;
@@ -445,6 +577,7 @@
       return;
     }
     if (el.getAttribute('data-action') === 'mylist') return toggleMyList();
+    if (el.getAttribute('data-action') === 'player') return setPlayer(el.getAttribute('data-value'));
     if (el.getAttribute('data-action') === 'retry') { cache = {}; route(); }
   }
 
@@ -495,6 +628,7 @@
     var p = h.match(/^#\/person\/(\d+)/);
     if (p) return renderPerson(p[1]);
     if (h === '#/search') return renderSearch();
+    if (h === '#/settings') return renderSettings();
     renderHome();
   }
 

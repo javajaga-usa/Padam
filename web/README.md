@@ -4,8 +4,8 @@ Run Padam on a computer at home, then open it in the web browser of any smart TV
 (Samsung, LG, Sony, Fire TV, or anything with a browser). You browse with the remote's arrow keys,
 OK and Back. No ads, no tracking, no accounts.
 
-It shows the same lists as the Android TV app (In theatres, Streaming on your apps, Popular, Top rated,
-Coming soon, genres, Classics), plus My List and Recently viewed, which every TV in the home shares
+It shows the same home screen as the Android TV app: a rotating Featured banner, then In theatres,
+Streaming on your apps, Top 10 Tamil films, Top rated, Coming soon, genres and Classics, plus My List and Recently viewed, which every TV in the home shares
 (saved in `padam-data.json` next to the server). It also has Tamil-only search and a details page with cast, crew,
 where the film is streaming, and official trailers and songs that play full screen.
 
@@ -64,9 +64,21 @@ To use a different name, set `PADAM_NAME=movies` in `.env` and open `movies.loca
 | OK / Enter | Open a film, play a trailer |
 | Back | Close the player or go back a screen |
 
+On the Featured banner, Left and Right step through its films and OK opens the one shown.
+
 A pointer remote (LG Magic Remote) or a mouse also works.
 
-## Settings (`.env`)
+## Settings on the TV
+
+Open **Settings** in the top bar to choose where YouTube videos play:
+
+- **Padam** (default): full screen inside Padam.
+- **YouTube**: opens the video on youtube.com in the same tab. Choose this if you have YouTube Premium,
+  because Premium removes ads only on YouTube itself.
+
+The choice is saved in that TV's browser.
+
+## Server settings (`.env`)
 
 | Name | Default | Meaning |
 | --- | --- | --- |

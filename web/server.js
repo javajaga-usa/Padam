@@ -238,7 +238,7 @@ const mock = (() => {
     'Jigarthanda', 'Soorarai Pottru', 'Visaranai', '96', 'Pariyerum Perumal', 'Karnan', 'Mahanadhi'];
   const movies = titles.map((t, i) => ({ id: 1000 + i, title: t, year: String(1987 + i * 2), rating: 7 + (i % 3) / 2,
     overview: t + ' is a Tamil film. This is sample text shown in mock mode so the layout can be checked without a TMDB key. It runs long enough to wrap onto a few lines.',
-    poster: null, backdrop: null, genres: [['Action', 'Thriller'], ['Drama'], ['Comedy', 'Family'], ['Crime', 'Drama']][i % 4] }));
+    poster: null, backdrop: i % 3 === 2 ? null : '/mock-backdrop-' + i + '.jpg', genres: [['Action', 'Thriller'], ['Drama'], ['Comedy', 'Family'], ['Crime', 'Drama']][i % 4] }));
   const rows = shelves().map(([title], r) => ({ title, movies: movies.slice(r % 5).concat(movies.slice(0, r % 5)) }));
   return {
     home: () => ({ rows }),
