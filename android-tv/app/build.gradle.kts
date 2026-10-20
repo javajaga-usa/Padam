@@ -23,13 +23,26 @@ android {
         applicationId = "com.padam.tv"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Each CI build counts up, so the TV always sees the download as an update.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "0.1.$build"
 
         buildConfigField("String", "TMDB_API_KEY", "\"${config("TMDB_API_KEY")}\"")
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${config("YOUTUBE_API_KEY")}\"")
         buildConfigField("String", "TMDB_REGION", "\"${config("TMDB_REGION", "IN")}\"")
         buildConfigField("String", "TMDB_LANGUAGE", "\"${config("TMDB_LANGUAGE", "en-IN")}\"")
+    }
+
+    // One debug key shared by every build, so a new download installs over the old one and keeps
+    // My List. It is a debug key, published on purpose; it does not protect anything.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("padam-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
