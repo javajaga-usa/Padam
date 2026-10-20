@@ -18,6 +18,16 @@ A clean, ad-free Android TV app for browsing Tamil films. Built with Kotlin and 
 
 Padam never streams video itself. Playback goes to apps that hold the rights, so nothing breaks when a pirate site goes down and nothing exposes you to their pop-ups or malware.
 
+## Install on the TV
+
+Every push to main publishes the newest build at one fixed link:
+
+    https://github.com/javajaga-usa/Padam/releases/download/tv-latest/padam.apk
+
+On the TV, install the free **Downloader** app (by AFTVnews), type that link, and choose Install.
+Allow "Install unknown apps" for Downloader when asked. Later updates install over the old one and
+keep My List. If you installed a build from before this link existed, uninstall it once first.
+
 ## Setup
 
 1. Get a free TMDB key at https://www.themoviedb.org/settings/api (the v3 API key or the v4 read access token both work).
