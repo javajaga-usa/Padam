@@ -11,18 +11,26 @@ where the film is streaming, and official trailers and songs that play full scre
 
 ## Run it
 
-Needs Node.js 18 or newer on the computer (https://nodejs.org). No other installs.
+Needs Node.js 18 or newer on the computer (https://nodejs.org, the LTS version). No other installs.
 
-1. Get a free TMDB key at https://www.themoviedb.org/settings/api.
-2. Copy `.env.example` to `.env` and put the key after `TMDB_API_KEY=`.
-3. Start it:
-
-   ```
-   node server.js
-   ```
-
+1. Download Padam: https://github.com/javajaga-usa/Padam/archive/refs/heads/main.zip and unzip it.
+   Open the `web` folder inside.
+2. Double-click **Start Padam**:
+   - Windows: `Start Padam.bat`
+   - Mac: `Start Padam.command` (the first time, right-click it and choose Open, because it isn't
+     from the App Store)
+   - Linux: run `./Start\ Padam.command` in a terminal
+3. The first time, it asks for a free TMDB key (get one at https://www.themoviedb.org/settings/api)
+   and whether to start Padam automatically whenever you log in. Say yes and you never need to
+   start it again.
 4. On the TV's browser, type **`padam.local`** in the address bar and bookmark it.
    If the browser runs a web search instead of opening the page, type it as `http://padam.local`.
+
+Double-clicking Start Padam while it is already running just shows the address. To stop starting at
+login, run `node launcher.js --autostart off` in the `web` folder (`--autostart on` turns it back on).
+When it starts at login, messages go to `padam.log` in the same folder.
+
+You can still start it by hand with `node server.js` and a `.env` file copied from `.env.example`.
 
 The key stays on your computer. The TV only talks to your computer, to TMDB for poster images,
 and to YouTube for trailers.

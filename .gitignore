@@ -9,3 +9,4 @@ captures/
 .env
 node_modules/
 padam-data.json
+padam.log
