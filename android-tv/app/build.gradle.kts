@@ -23,10 +23,10 @@ android {
         applicationId = "com.padam.tv"
         minSdk = 26
         targetSdk = 35
-        // Each CI build counts up, so the TV always sees the download as an update.
-        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        // The commit count only goes up, so every download installs as an update, from either workflow.
+        val build = System.getenv("PADAM_VERSION_CODE")?.toIntOrNull() ?: 1
         versionCode = build
-        versionName = "0.1.$build"
+        versionName = System.getenv("GITHUB_REF_NAME")?.takeIf { it.startsWith("v") }?.removePrefix("v") ?: "0.1.$build"
 
         buildConfigField("String", "TMDB_API_KEY", "\"${config("TMDB_API_KEY")}\"")
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${config("YOUTUBE_API_KEY")}\"")

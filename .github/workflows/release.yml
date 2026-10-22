@@ -1,0 +1,44 @@
+name: Release
+
+# Push a tag like v1.0.0 to publish a release with the Android TV APK and the web version.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: echo "PADAM_VERSION_CODE=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build the Android TV APK
+        working-directory: android-tv
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../padam.apk
+      - name: Zip the web version
+        run: |
+          mkdir -p dist
+          git archive --prefix=Padam/ HEAD:web | tar -x -C dist
+          chmod +x "dist/Padam/Start Padam.command"
+          (cd dist && zip -qr ../padam-web.zip Padam)
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" padam.apk padam-web.zip \
+            --title "Padam $GITHUB_REF_NAME" --notes-file .github/release-notes.md

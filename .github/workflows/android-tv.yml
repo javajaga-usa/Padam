@@ -18,6 +18,9 @@ jobs:
         working-directory: android-tv
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: echo "PADAM_VERSION_CODE=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
