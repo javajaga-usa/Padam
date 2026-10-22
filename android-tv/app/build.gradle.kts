@@ -26,7 +26,7 @@ android {
         // The commit count only goes up, so every download installs as an update, from either workflow.
         val build = System.getenv("PADAM_VERSION_CODE")?.toIntOrNull() ?: 1
         versionCode = build
-        versionName = System.getenv("GITHUB_REF_NAME")?.takeIf { it.startsWith("v") }?.removePrefix("v") ?: "0.1.$build"
+        versionName = System.getenv("RELEASE_TAG")?.takeIf { it.startsWith("v") }?.removePrefix("v") ?: "0.1.$build"
 
         buildConfigField("String", "TMDB_API_KEY", "\"${config("TMDB_API_KEY")}\"")
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${config("YOUTUBE_API_KEY")}\"")
